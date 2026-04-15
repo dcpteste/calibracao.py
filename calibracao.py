@@ -111,4 +111,37 @@ with aba2:
     st.subheader("⚖️ Pesagem do Frasco")
     f1, f2 = st.columns(2)
     pi = ajustar_peso(f1.number_input("Peso Inicial Frasco", key="pi_e"))
-    pf = ajustar_peso(f2.number
+    pf = ajustar_peso(f2.number_input("Peso Final Frasco", key="pf_e"))
+    
+    st.divider()
+    p_max = st.sidebar.number_input("Proctor Máximo", value=st.session_state.calib["proctor_max"], format="%.3f")
+    lim_gc = st.sidebar.selectbox("Meta G.C.", [95.0, 100.0])
+
+    # CÁLCULOS TÉCNICOS
+    if pi > pf and p_solo > 0:
+        d_a = st.session_state.calib["dens_areia"]
+        p_cone = st.session_state.calib["peso_cone"]
+        
+        p_areia_cava = pi - pf - p_cone
+        if p_areia_cava > 0:
+            vol_cava = p_areia_cava / d_a
+            d_seca = (p_solo / vol_cava) / (1 + (umid / 100))
+            gc = (d_seca / p_max) * 100
+            
+            status = "APROVADO ✅" if gc >= lim_gc else "RECOMPACTAR ⚠️"
+            
+            st.subheader(f"Resultado: {status}")
+            r1, r2 = st.columns(2)
+            r1.metric("Densidade Seca", f"{d_seca:.3f}")
+            r2.metric("G.C. (%)", f"{gc:.1f}%")
+
+            dados_final = {
+                "os": os, "endereco": loc, "umidade": umid, "p_bu": bu, "p_bs": bs,
+                "p_areia_cava": p_areia_cava, "vol": vol_cava, "p_solo_real": p_solo,
+                "dens_seca": d_seca, "proctor": p_max, "gc": gc, "limite": lim_gc, "status": status
+            }
+            
+            pdf_b = gerar_pdf_ensaio(dados_final)
+            st.download_button("📩 Baixar Relatório PDF", pdf_b, f"Ensaio_{os}.pdf", "application/pdf", use_container_width=True)
+        else:
+            st.error("Erro: Peso Final muito alto ou Peso do Cone incorreto.")
