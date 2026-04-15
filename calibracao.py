@@ -29,10 +29,10 @@ def gerar_pdf_calib(dados):
     pdf.cell(190, 8, " DADOS DA MEDICAO", border=1, ln=True, fill=True)
     pdf.set_font("Arial", "", 10)
     
-    pdf.cell(130, 8, " Volume do Recipiente (cm3):", border=1); pdf.cell(60, 8, f"{dados['vol']:.1f}", border=1, ln=True)
+    pdf.cell(130, 8, " Volume do Recipiente (cm³):", border=1); pdf.cell(60, 8, f"{dados['vol']:.1f}", border=1, ln=True)
     pdf.cell(130, 8, " Peso do Recipiente + Areia (g):", border=1); pdf.cell(60, 8, f"{dados['p_total']:.1f}", border=1, ln=True)
     pdf.cell(130, 8, " Peso do Recipiente Vazio (g):", border=1); pdf.cell(60, 8, f"{dados['p_vazio']:.1f}", border=1, ln=True)
-    pdf.cell(130, 8, " Massa Liquida da Areia (g):", border=1); pdf.cell(60, 8, f"{dados['massa_a']:.1f}", border=1, ln=True)
+    pdf.cell(130, 8, " Densidade da Areia (g/m³):", border=1); pdf.cell(60, 8, f"{dados['massa_a']:.1f}", border=1, ln=True)
     
     pdf.ln(10)
     
