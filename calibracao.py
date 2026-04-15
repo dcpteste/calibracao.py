@@ -3,7 +3,7 @@ from fpdf import FPDF
 from datetime import datetime
 import io
 
-st.set_page_config(page_title="Sistemas Metrosul - Solo", page_icon="🏗️", layout="centered")
+st.set_page_config(page_title="Calibração de Areia | Metrosul", page_icon="⚖️", layout="centered")
 
 # --- FUNÇÃO DE AJUSTE AUTOMÁTICO (KG para G) ---
 def ajustar_peso(valor):
@@ -11,137 +11,93 @@ def ajustar_peso(valor):
         return valor * 1000
     return valor
 
-# --- INICIALIZAÇÃO DA MEMÓRIA (Session State) ---
-if 'calib' not in st.session_state:
-    st.session_state.calib = {
-        "dens_areia": 1.450,
-        "peso_cone": 1540.0,
-        "vol_recipiente": 2120.0,
-        "proctor_max": 2.050,
-        "limite_gc": 95.0
-    }
-
-# --- FUNÇÃO PARA GERAR PDF (FORMATO TÉCNICO) ---
-def gerar_pdf_ensaio(dados):
+# --- FUNÇÃO PARA GERAR PDF DE CALIBRAÇÃO ---
+def gerar_pdf_calib(dados):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Cabeçalho
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(200, 10, "RELATORIO DE ENSAIO - FRASCO DE AREIA", ln=True, align='C')
+    pdf.cell(200, 10, "CERTIFICADO DE CALIBRACAO DA AREIA", ln=True, align='C')
     pdf.set_font("Arial", "I", 9)
-    pdf.cell(200, 5, "Norma DNER-ME 092/94", ln=True, align='C')
-    pdf.ln(5)
+    pdf.cell(200, 5, "Determinação da Massa Específica Aparente", ln=True, align='C')
+    pdf.ln(10)
 
-    sections = [
-        ("1. IDENTIFICACAO", [f"OS: {dados['os']}", f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", f"Local: {dados['endereco']}"]),
-        ("2. UMIDADE", [f"Solo Umido+B: {dados['p_bu']:.1f}g", f"Solo Seco+B: {dados['p_bs']:.1f}g", f"UMIDADE: {dados['umidade']:.2f} %"]),
-        ("3. PESOS E VOLUMES", [f"Areia na Cava: {dados['p_areia_cava']:.1f}g", f"Volume Cava: {dados['vol']:.1f} cm3", f"Solo Umido Cava: {dados['p_solo_real']:.1f}g"]),
-        ("4. CONCLUSAO", [f"Dens. Seca: {dados['dens_seca']:.3f} g/cm3", f"Proctor Lab: {dados['proctor']:.3f} g/cm3"])
-    ]
-
-    for title, lines in sections:
-        pdf.set_fill_color(230, 230, 230)
-        pdf.set_font("Arial", "B", 10)
-        pdf.cell(190, 7, f" {title}", border=1, ln=True, fill=True)
-        pdf.set_font("Arial", "", 10)
-        for line in lines:
-            pdf.cell(190, 8, f" {line}", border=1, ln=True)
-        pdf.ln(2)
-
-    pdf.ln(5)
-    color = (0, 100, 0) if dados['gc'] >= dados['limite'] else (200, 0, 0)
-    pdf.set_text_color(*color)
+    # Tabela de Dados
+    pdf.set_fill_color(230, 230, 230)
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(190, 8, " DADOS DA MEDICAO", border=1, ln=True, fill=True)
+    pdf.set_font("Arial", "", 10)
+    
+    pdf.cell(130, 8, " Volume do Recipiente (cm3):", border=1); pdf.cell(60, 8, f"{dados['vol']:.1f}", border=1, ln=True)
+    pdf.cell(130, 8, " Peso do Recipiente + Areia (g):", border=1); pdf.cell(60, 8, f"{dados['p_total']:.1f}", border=1, ln=True)
+    pdf.cell(130, 8, " Peso do Recipiente Vazio (g):", border=1); pdf.cell(60, 8, f"{dados['p_vazio']:.1f}", border=1, ln=True)
+    pdf.cell(130, 8, " Massa Liquida da Areia (g):", border=1); pdf.cell(60, 8, f"{dados['massa_a']:.1f}", border=1, ln=True)
+    
+    pdf.ln(10)
+    
+    # Resultado Final de Destaque
     pdf.set_font("Arial", "B", 14)
-    status_txt = "APROVADO" if dados['gc'] >= dados['limite'] else "RECOMPACTAR"
-    pdf.cell(190, 15, f" GRAU DE COMPACTACAO: {dados['gc']:.1f} %", border=1, ln=True, align='C')
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(190, 10, f"STATUS: {status_txt}", border=0, ln=True, align='C')
+    pdf.set_fill_color(200, 220, 255)
+    pdf.cell(190, 15, f" DENSIDADE DA AREIA: {dados['densidade']:.3f} g/cm3", border=1, ln=True, align='C', fill=True)
+    
+    pdf.ln(10)
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(190, 5, f"Calibracao realizada em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align='R')
+    
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# --- INTERFACE PRINCIPAL ---
-st.title("🏗️ Controle de Solo - Metrosul")
+# --- INTERFACE ---
+st.title("⚖️ Calibração de Areia")
+st.caption("Ambiental Metrosul - Laboratório de Solos")
 
-aba1, aba2 = st.tabs(["⚖️ Calibração da Areia", "🧪 Ensaio de Campo"])
+with st.container():
+    st.subheader("📏 1. Volume do Recipiente")
+    st.info("O volume padrão costuma ser 2120 cm³, mas confira o seu cilindro.")
+    vol_recipiente = st.number_input("Volume do Recipiente (cm³)", value=2120.0, format="%.1f")
 
-# --- ABA 1: CALIBRAÇÃO ---
-with aba1:
-    st.header("Calibração da Densidade")
-    col1, col2 = st.columns(2)
-    v_rec = col1.number_input("Volume do Recipiente (cm³)", value=st.session_state.calib["vol_recipiente"])
-    p_cone_fixo = col2.number_input("Peso no Cone (g)", value=st.session_state.calib["peso_cone"])
-    
-    st.divider()
+st.divider()
+
+with st.container():
+    st.subheader("⏳ 2. Pesagens")
     c1, c2 = st.columns(2)
-    p_v = c1.number_input("Peso Recipiente Vazio (g)", key="pv_cal")
-    p_c_raw = c2.number_input("Peso Recipiente + Areia (g)", key="pc_cal")
-    p_c = ajustar_peso(p_c_raw)
-    
-    if p_c > p_v:
-        m_areia = p_c - p_v
-        d_calculada = m_areia / v_rec
-        st.metric("Densidade Encontrada", f"{d_calculada:.3f} g/cm³")
-        
-        if st.button("💾 Salvar e Usar no Ensaio", use_container_width=True):
-            st.session_state.calib.update({"dens_areia": d_calculada, "vol_recipiente": v_rec, "peso_cone": p_cone_fixo})
-            st.success("Configurações atualizadas para o Ensaio!")
+    p_vazio = c1.number_input("Peso do Recipiente Vazio (g)", format="%.1f")
+    p_total_raw = c2.number_input("Peso Recipiente + Areia (g)", format="%.1f")
+    p_total = ajustar_peso(p_total_raw)
 
-# --- ABA 2: ENSAIO DE CAMPO ---
-with aba2:
-    st.header("Ensaio de Frasco de Areia")
-    
-    with st.expander("📝 Dados de Identificação", expanded=True):
-        os = st.text_input("Número da OS")
-        loc = st.text_input("Local / Estaca")
-    
-    col_u, col_s = st.columns(2)
-    with col_u:
-        st.subheader("🔥 Umidade")
-        bu = ajustar_peso(st.number_input("Bandeja + Solo Úmido", key="bu_e"))
-        bs = ajustar_peso(st.number_input("Bandeja + Solo Seco", key="bs_e"))
-        t_u = st.number_input("Tara Bandeja (g)", value=100.0)
-        umid = ((bu - bs) / (bs - t_u)) * 100 if (bs - t_u) > 0 else 0.0
-        st.caption(f"Umidade: {umid:.2f}%")
-
-    with col_s:
-        st.subheader("🕳️ Solo da Cava")
-        p_t = ajustar_peso(st.number_input("Total (Solo+Bandeja)", key="pt_e"))
-        t_c = st.number_input("Tara Bandeja Cava", value=500.0)
-        p_solo = p_t - t_c
-        st.caption(f"Solo Líquido: {p_solo:.1f}g")
-
-    st.subheader("⚖️ Pesagem do Frasco")
-    f1, f2 = st.columns(2)
-    pi = ajustar_peso(f1.number_input("Peso Inicial Frasco", key="pi_e"))
-    pf = ajustar_peso(f2.number_input("Peso Final Frasco", key="pf_e"))
+# --- CÁLCULO ---
+if p_total > p_vazio and vol_recipiente > 0:
+    massa_areia = p_total - p_vazio
+    densidade_final = massa_areia / vol_recipiente
     
     st.divider()
-    p_max = st.sidebar.number_input("Proctor Máximo", value=st.session_state.calib["proctor_max"], format="%.3f")
-    lim_gc = st.sidebar.selectbox("Meta G.C.", [95.0, 100.0])
+    st.subheader("📊 Resultado Final")
+    
+    res1, res2 = st.columns(2)
+    res1.metric("Massa da Areia", f"{massa_areia:.1f} g")
+    res2.metric("DENSIDADE", f"{densidade_final:.3f} g/cm³")
 
-    # CÁLCULOS TÉCNICOS
-    if pi > pf and p_solo > 0:
-        d_a = st.session_state.calib["dens_areia"]
-        p_cone = st.session_state.calib["peso_cone"]
-        
-        p_areia_cava = pi - pf - p_cone
-        if p_areia_cava > 0:
-            vol_cava = p_areia_cava / d_a
-            d_seca = (p_solo / vol_cava) / (1 + (umid / 100))
-            gc = (d_seca / p_max) * 100
-            
-            status = "APROVADO ✅" if gc >= lim_gc else "RECOMPACTAR ⚠️"
-            
-            st.subheader(f"Resultado: {status}")
-            r1, r2 = st.columns(2)
-            r1.metric("Densidade Seca", f"{d_seca:.3f}")
-            r2.metric("G.C. (%)", f"{gc:.1f}%")
+    # Preparar Dados para o PDF
+    dados_cal = {
+        "vol": vol_recipiente,
+        "p_total": p_total,
+        "p_vazio": p_vazio,
+        "massa_a": massa_areia,
+        "densidade": densidade_final
+    }
+    
+    pdf_bytes = gerar_pdf_calib(dados_cal)
+    
+    st.download_button(
+        label="📥 Baixar Certificado de Calibração",
+        data=pdf_bytes,
+        file_name=f"Calibracao_Areia_{datetime.now().strftime('%d%m%Y')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
 
-            dados_final = {
-                "os": os, "endereco": loc, "umidade": umid, "p_bu": bu, "p_bs": bs,
-                "p_areia_cava": p_areia_cava, "vol": vol_cava, "p_solo_real": p_solo,
-                "dens_seca": d_seca, "proctor": p_max, "gc": gc, "limite": lim_gc, "status": status
-            }
-            
-            pdf_b = gerar_pdf_ensaio(dados_final)
-            st.download_button("📩 Baixar Relatório PDF", pdf_b, f"Ensaio_{os}.pdf", "application/pdf", use_container_width=True)
-        else:
-            st.error("Erro: Peso Final muito alto ou Peso do Cone incorreto.")
+st.sidebar.markdown("### Instruções")
+st.sidebar.write("1. Verifique se o recipiente está limpo.")
+st.sidebar.write("2. Deixe a areia cair livremente no cilindro.")
+st.sidebar.write("3. Nivele a superfície com a régua.")
+st.sidebar.write("4. Use o valor da densidade gerado aqui no seu App de Ensaio de Campo.")
