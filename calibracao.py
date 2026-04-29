@@ -2,7 +2,6 @@ import streamlit as st
 from fpdf import FPDF
 from datetime import datetime
 import io
-import re
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Sistema de Ensaios", page_icon="🏗️", layout="centered")
@@ -11,16 +10,15 @@ st.set_page_config(page_title="Sistema de Ensaios", page_icon="🏗️", layout=
 if 'pagina' not in st.session_state:
     st.session_state.pagina = 'home'
 
-# Função para mudar de página
 def mudar_pagina(nome):
     st.session_state.pagina = nome
 
 # ==========================================
-# TELA DE ESCOLHA (BOTÕES INICIAIS)
+# TELA DE ESCOLHA (MENU INICIAL)
 # ==========================================
 if st.session_state.pagina == 'home':
-    st.title("🏗️ Selecione o Ensaio de Hoje")
-    st.write("Escolha qual formulário deseja preencher:")
+    st.title("🏗️ Selecione o Ensaio")
+    st.write("Qual formulário você vai preencher agora?")
     
     col1, col2 = st.columns(2)
     
@@ -35,14 +33,13 @@ if st.session_state.pagina == 'home':
             st.rerun()
 
 # ==========================================
-# CÓDIGO 1: METROSUL (DENSIDADE)
+# CÓDIGO 1: METROSUL (DENSIDADE) - CORRIGIDO
 # ==========================================
 elif st.session_state.pagina == 'metrosul':
     if st.button("⬅️ Voltar ao Menu"):
         mudar_pagina('home')
         st.rerun()
 
-    # --- SEU CÓDIGO ORIGINAL METROSUL ---
     def gerar_pdf_ensaio(d):
         pdf = FPDF()
         pdf.add_page()
@@ -60,6 +57,7 @@ elif st.session_state.pagina == 'metrosul':
                 pdf.cell(140, 8, f" {desc}", border=1)
                 pdf.cell(50, 8, f" {valor}", border=1, ln=True, align='R')
             pdf.ln(3)
+        
         criar_tabela("1. DETERMINACAO DA UMIDADE", [
             ("A - Tara do recipiente (g)", f"{d['u_a']:.3f}"),
             ("B - Peso do solo umido + recipiente (g)", f"{d['u_b']:.3f}"),
@@ -88,15 +86,18 @@ elif st.session_state.pagina == 'metrosul':
         return pdf.output(dest='S').encode('latin-1', 'ignore')
 
     st.title("🧪 Painel de Controle - Metrosul")
+    
     with st.expander("💧 1. Determinação da Umidade", expanded=True):
         col1, col2 = st.columns(2)
-        u_a = col1.number_input("A - Tara da Bandeja Pequena (g)", format="%.3f", step=0.001, key="t_u")
+        u_a = col1.number_input("A - Tara da Bandeja Pequena (g)", format="%.3f", step=0.001, key="t_u", value=0.240)
         u_b = col2.number_input("B - Solo Úmido + Bandeja (g)", format="%.3f", step=0.001, key="s_u")
         u_c = st.number_input("C - Solo Seco + Bandeja (g)", format="%.3f", step=0.001, key="s_s")
-        u_d, u_e = u_b - u_a, u_c - u_a
+        u_d = u_b - u_a
+        u_e = u_c - u_a
         u_f = u_d - u_e
         u_g = (u_f / u_e) * 100 if u_e > 0 else 0.0
         st.info(f"**Teor de Umidade (w): {u_g:.2f}%**")
+
     with st.expander("⚖️ 2. Densidade In Situ", expanded=True):
         col_d1, col_d2 = st.columns(2)
         d_a = col_d1.number_input("A - Massa Inicial (Frasco+Areia) (g)", format="%.3f", step=0.001)
@@ -105,20 +106,29 @@ elif st.session_state.pagina == 'metrosul':
         d_f = st.number_input("F - Densidade da Areia (g/cm³)", format="%.3f", step=0.001, value=1.422)
         d_h_total = st.number_input("H - Massa Solo Úmido + Bandeja da Cava (g)", format="%.3f", step=0.001)
         d_h_tara = st.number_input("Tara da Bandeja da Cava (g)", format="%.3f", step=0.001, value=0.240, key="t_c")
+        
+        # CORREÇÃO DO ERRO DA LINHA 109
         d_h_liquido = d_h_total - d_h_tara
-        d_c, d_e = d_a - d_b, d_c - d_d
+        d_c = d_a - d_b
+        d_e = d_c - d_d
         d_g = d_e / d_f if d_f > 0 else 0.0
         d_i = d_h_liquido / d_g if d_g > 0 else 0.0
         d_j = d_i / (1 + (u_g / 100)) if u_e > 0 else 0.0
+        
+        # CORREÇÃO DO ERRO DA LINHA 99 (Aspas)
+        st.write(f"**Volume do Buraco (G): {d_g:.4f} cm³**")
         st.success(f"**Massa Seca de Campo (J): {d_j:.3f} g/cm³**")
+
+    st.divider()
     proctor = st.number_input("Proctor Máximo Lab (g/cm³)", format="%.3f", step=0.001, value=1.785)
     gc = (d_j / proctor) * 100 if proctor > 0 else 0.0
     st.metric("GRAU DE COMPACTAÇÃO", f"{gc:.1f}%")
+    
     if gc > 0:
-        d_pdf = {'u_a':u_a, 'u_b':u_b, 'u_c':u_c, 'u_d':u_d, 'u_e':u_e, 'u_f':u_f, 'u_g':u_g,
-                 'd_a':d_a, 'd_b':d_b, 'd_c':(d_a-d_b), 'd_d':d_d, 'd_e':d_e, 'd_f':d_f, 'd_g':d_g, 
-                 'd_h_total':d_h_total, 'd_h_tara':d_h_tara, 'd_i':d_i, 'd_j':d_j, 'gc':gc}
-        st.download_button("📥 Baixar PDF Metrosul", gerar_pdf_ensaio(d_pdf), "Relatorio_Metrosul.pdf", "application/pdf", use_container_width=True)
+        dados_pdf = {'u_a':u_a, 'u_b':u_b, 'u_c':u_c, 'u_d':u_d, 'u_e':u_e, 'u_f':u_f, 'u_g':u_g,
+                     'd_a':d_a, 'd_b':d_b, 'd_c':d_c, 'd_d':d_d, 'd_e':d_e, 'd_f':d_f, 'd_g':d_g, 
+                     'd_h_total':d_h_total, 'd_h_tara':d_h_tara, 'd_i':d_i, 'd_j':d_j, 'gc':gc}
+        st.download_button("📥 Baixar PDF Metrosul", gerar_pdf_ensaio(dados_pdf), "Relatorio_Metrosul.pdf", "application/pdf", use_container_width=True)
 
 # ==========================================
 # CÓDIGO 2: CORSAN (DCP)
@@ -128,12 +138,12 @@ elif st.session_state.pagina == 'corsan':
         mudar_pagina('home')
         st.rerun()
 
-    # --- SEU CÓDIGO ORIGINAL CORSAN ---
     def parse_float(valor_str: str) -> float:
         if not valor_str: return 0.0
         v_limpo = valor_str.strip().replace(',', '.')
         try: return float(v_limpo)
         except ValueError: return 0.0
+
     def gerar_pdf_dcp(dados):
         pdf = FPDF()
         pdf.add_page()
@@ -175,6 +185,7 @@ elif st.session_state.pagina == 'corsan':
     limite = st.session_state.limites[st.session_state.material]
     st.info(f"Material: {st.session_state.material} | Limite: {limite:.2f}")
     marco_zero = parse_float(st.text_input("Marco Zero (mm)", value="0.0"))
+    
     for idx, leitura in enumerate(st.session_state.leituras):
         col_v, col_d = st.columns([5, 1])
         st.session_state.leituras[idx] = parse_float(col_v.text_input(f"Leitura {(idx+1)*3} golpes", value=f"{leitura:.1f}", key=f"dcp_{idx}"))
@@ -188,4 +199,4 @@ elif st.session_state.pagina == 'corsan':
         if os_id and endereco:
             status = "APROVADO" if ipdf <= limite else "RECOMPACTAR"
             d_pdf = {"os": os_id, "endereco": endereco, "material": st.session_state.material, "marco_zero": marco_zero, "leituras": st.session_state.leituras, "ipd_final": ipdf, "status": status}
-            st.download_button("📄 Baixar PDF DCP", gerar_pdf_dcp(d_pdf), "DCP.pdf", "application/pdf", use_container_width=True)
+            st.download_button("📄 Baixar PDF DCP", gerar_pdf_dcp(d_pdf), f"DCP_{os_id}.pdf", "application/pdf", use_container_width=True)
