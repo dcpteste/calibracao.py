@@ -28,12 +28,12 @@ if st.session_state.pagina == 'home':
             st.rerun()
             
     with col2:
-        if st.button("🏗️ ENSAIO DCP (METROSUL)", use_container_width=True):
+        if st.button("🏗️ ENSAIO DCP (CORSAN)", use_container_width=True):
             mudar_pagina('corsan')
             st.rerun()
 
 # ==========================================
-# CÓDIGO 1: METROSUL (DENSIDADE) - CORRIGIDO
+# CÓDIGO 1: METROSUL (DENSIDADE)
 # ==========================================
 elif st.session_state.pagina == 'metrosul':
     if st.button("⬅️ Voltar ao Menu"):
@@ -48,6 +48,7 @@ elif st.session_state.pagina == 'metrosul':
         pdf.set_font("Arial", "", 9)
         pdf.cell(190, 5, "Padrao Operacional - Ambiental Metrosul", ln=True, align='C')
         pdf.ln(5)
+        
         def criar_tabela(titulo, linhas):
             pdf.set_fill_color(230, 230, 230)
             pdf.set_font("Arial", "B", 10)
@@ -79,6 +80,7 @@ elif st.session_state.pagina == 'metrosul':
             ("I - Tara da bandeja da cava (g)", f"{d['d_h_tara']:.3f}"),
             ("J - Massa especifica seca (g/cm3)", f"{d['d_j']:.3f}")
         ])
+        
         pdf.set_font("Arial", "B", 12)
         cor = (0, 100, 0) if d['gc'] >= 95 else (200, 0, 0)
         pdf.set_text_color(*cor)
@@ -89,25 +91,34 @@ elif st.session_state.pagina == 'metrosul':
     
     with st.expander("💧 1. Determinação da Umidade", expanded=True):
         col1, col2 = st.columns(2)
-        u_a = col1.number_input("A - Tara da Bandeja Pequena (g)", format="%.3f", step=0.001, key="t_u", value=0.240)
+        u_a = col1.number_input("A - Tara da Bandeja Pequena (g)", format="%.3f", step=0.001, key="t_u")
         u_b = col2.number_input("B - Solo Úmido + Bandeja (g)", format="%.3f", step=0.001, key="s_u")
         u_c = st.number_input("C - Solo Seco + Bandeja (g)", format="%.3f", step=0.001, key="s_s")
+        
         u_d = u_b - u_a
         u_e = u_c - u_a
         u_f = u_d - u_e
         u_g = (u_f / u_e) * 100 if u_e > 0 else 0.0
+        
+        st.write("---")
+        res1, res2, res3 = st.columns(3)
+        res1.metric("Solo Úmido (D)", f"{u_d:.3f}")
+        res2.metric("Solo Seco (E)", f"{u_e:.3f}")
+        res3.metric("Peso Água (F)", f"{u_f:.3f}")
         st.info(f"**Teor de Umidade (w): {u_g:.2f}%**")
 
     with st.expander("⚖️ 2. Densidade In Situ", expanded=True):
         col_d1, col_d2 = st.columns(2)
         d_a = col_d1.number_input("A - Massa Inicial (Frasco+Areia) (g)", format="%.3f", step=0.001)
         d_b = col_d2.number_input("B - Massa Final (Frasco+Areia) (g)", format="%.3f", step=0.001)
-        d_d = st.number_input("D - Massa Areia no Cone (g)", format="%.3f", step=0.001, value=0.533)
-        d_f = st.number_input("F - Densidade da Areia (g/cm³)", format="%.3f", step=0.001, value=1.422)
+        
+        col_d3, col_d4 = st.columns(2)
+        d_d = col_d3.number_input("D - Massa Areia no Cone (g)", format="%.3f", step=0.001, value=0.533)
+        d_f = col_d4.number_input("F - Densidade da Areia (g/cm³)", format="%.3f", step=0.001, value=1.422)
+        
         d_h_total = st.number_input("H - Massa Solo Úmido + Bandeja da Cava (g)", format="%.3f", step=0.001)
         d_h_tara = st.number_input("Tara da Bandeja da Cava (g)", format="%.3f", step=0.001, value=0.240, key="t_c")
         
-        # CORREÇÃO DO ERRO DA LINHA 109
         d_h_liquido = d_h_total - d_h_tara
         d_c = d_a - d_b
         d_e = d_c - d_d
@@ -115,8 +126,11 @@ elif st.session_state.pagina == 'metrosul':
         d_i = d_h_liquido / d_g if d_g > 0 else 0.0
         d_j = d_i / (1 + (u_g / 100)) if u_e > 0 else 0.0
         
-        # CORREÇÃO DO ERRO DA LINHA 99 (Aspas)
-        st.write(f"**Volume do Buraco (G): {d_g:.4f} cm³**")
+        st.write("---")
+        rd1, rd2, rd3 = st.columns(3)
+        rd1.metric("Areia Buraco (E)", f"{d_e:.3f}")
+        rd2.metric("Volume (G)", f"{d_g:.4f}")
+        rd3.metric("Solo Líquido", f"{d_h_liquido:.3f}")
         st.success(f"**Massa Seca de Campo (J): {d_j:.3f} g/cm³**")
 
     st.divider()
@@ -125,10 +139,12 @@ elif st.session_state.pagina == 'metrosul':
     st.metric("GRAU DE COMPACTAÇÃO", f"{gc:.1f}%")
     
     if gc > 0:
-        dados_pdf = {'u_a':u_a, 'u_b':u_b, 'u_c':u_c, 'u_d':u_d, 'u_e':u_e, 'u_f':u_f, 'u_g':u_g,
-                     'd_a':d_a, 'd_b':d_b, 'd_c':d_c, 'd_d':d_d, 'd_e':d_e, 'd_f':d_f, 'd_g':d_g, 
-                     'd_h_total':d_h_total, 'd_h_tara':d_h_tara, 'd_i':d_i, 'd_j':d_j, 'gc':gc}
-        st.download_button("📥 Baixar PDF Metrosul", gerar_pdf_ensaio(dados_pdf), "Relatorio_Metrosul.pdf", "application/pdf", use_container_width=True)
+        dados_pdf = {
+            'u_a':u_a, 'u_b':u_b, 'u_c':u_c, 'u_d':u_d, 'u_e':u_e, 'u_f':u_f, 'u_g':u_g,
+            'd_a':d_a, 'd_b':d_b, 'd_c':d_c, 'd_d':d_d, 'd_e':d_e, 'd_f':d_f, 'd_g':d_g, 
+            'd_h_total':d_h_total, 'd_h_tara':d_h_tara, 'd_i':d_i, 'd_j':d_j, 'gc':gc
+        }
+        st.download_button("📥 Baixar Relatório PDF", gerar_pdf_ensaio(dados_pdf), "Relatorio_Metrosul.pdf", "application/pdf", use_container_width=True)
 
 # ==========================================
 # CÓDIGO 2: CORSAN (DCP)
@@ -178,12 +194,15 @@ elif st.session_state.pagina == 'corsan':
     st.title("🏗️ Ensaio DCP - Corsan")
     os_id = st.text_input("Número da OS / Contrato")
     endereco = st.text_input("Local / Endereço")
-    c_m1, c_m2, c_m3 = st.columns(3)
-    if c_m1.button("🟤 BGS"): st.session_state.material = "BGS"
-    if c_m2.button("🟠 Solo"): st.session_state.material = "Solo"
-    if c_m3.button("🟡 Areia"): st.session_state.material = "Areia"
+    
+    col_m1, col_m2, col_m3 = st.columns(3)
+    if col_m1.button("🟤 BGS"): st.session_state.material = "BGS"
+    if col_m2.button("🟠 Solo"): st.session_state.material = "Solo"
+    if col_m3.button("🟡 Areia"): st.session_state.material = "Areia"
+    
     limite = st.session_state.limites[st.session_state.material]
     st.info(f"Material: {st.session_state.material} | Limite: {limite:.2f}")
+    
     marco_zero = parse_float(st.text_input("Marco Zero (mm)", value="0.0"))
     
     for idx, leitura in enumerate(st.session_state.leituras):
@@ -191,8 +210,10 @@ elif st.session_state.pagina == 'corsan':
         st.session_state.leituras[idx] = parse_float(col_v.text_input(f"Leitura {(idx+1)*3} golpes", value=f"{leitura:.1f}", key=f"dcp_{idx}"))
         if col_d.button("🗑️", key=f"del_{idx}"):
             st.session_state.leituras.pop(idx); st.rerun()
+            
     if st.button("➕ Adicionar leitura"):
         st.session_state.leituras.append(0.0); st.rerun()
+        
     if st.session_state.leituras:
         ipdf = (st.session_state.leituras[-1] - marco_zero) / (len(st.session_state.leituras) * 3)
         st.metric("IPD Final", f"{ipdf:.2f}")
