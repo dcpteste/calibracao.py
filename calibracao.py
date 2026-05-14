@@ -47,7 +47,7 @@ elif st.session_state.pagina == 'metrosul':
         pdf.set_font("Arial", "B", 14)
         pdf.cell(190, 10, "RELATORIO DE ENSAIO - FRASCO DE AREIA", ln=True, align='C')
         pdf.set_font("Arial", "", 9)
-        pdf.cell(190, 5, "Padrao Operacional - Ambiental Metrosul", ln=True, align='C')
+        pdf.cell(190, 5, "Padrao Operacional ", ln=True, align='C')
         pdf.ln(5)
 
         def criar_tabela(titulo, linhas):
